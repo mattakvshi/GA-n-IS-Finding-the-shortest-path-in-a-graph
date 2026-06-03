@@ -1,0 +1,3 @@
+Укажите путь к CSV напарника с результатами ГА.
+Пример: python -m src.compare_with_partner ../ga_results.csv
+CSV с результатами ИС уже лежит здесь: /mnt/data/final_iter/Генетические алгоритмы/Мои решения/results/experiment_results.csv

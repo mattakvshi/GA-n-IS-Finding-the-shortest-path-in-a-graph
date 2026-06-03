@@ -1,0 +1,5 @@
+Эксперименты завершены. Полученные строки:
+{'algorithm': 'Immune Network', 'graph_vertices': 10, 'graph_edges': 18, 'start_vertex': 0, 'target_vertex': 9, 'best_path_length': 20.0, 'dijkstra_path_length': 20.0, 'deviation_percent': 0.0, 'execution_time_sec': 0.163971, 'iterations': 45, 'best_path': '0 -> 6 -> 8 -> 9'}
+{'algorithm': 'Immune Network', 'graph_vertices': 18, 'graph_edges': 38, 'start_vertex': 0, 'target_vertex': 17, 'best_path_length': 17.0, 'dijkstra_path_length': 17.0, 'deviation_percent': 0.0, 'execution_time_sec': 0.364675, 'iterations': 55, 'best_path': '0 -> 1 -> 6 -> 17'}
+{'algorithm': 'Immune Network', 'graph_vertices': 26, 'graph_edges': 65, 'start_vertex': 0, 'target_vertex': 25, 'best_path_length': 28.0, 'dijkstra_path_length': 28.0, 'deviation_percent': 0.0, 'execution_time_sec': 0.452384, 'iterations': 65, 'best_path': '0 -> 13 -> 7 -> 25'}
+{'algorithm': 'Immune Network', 'graph_vertices': 34, 'graph_edges': 95, 'start_vertex': 0, 'target_vertex': 33, 'best_path_length': 28.0, 'dijkstra_path_length': 28.0, 'deviation_percent': 0.0, 'execution_time_sec': 0.556095, 'iterations': 75, 'best_path': '0 -> 25 -> 28 -> 5 -> 14 -> 33'}

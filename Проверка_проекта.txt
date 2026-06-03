@@ -1,0 +1,27 @@
+Финальная проверка проекта
+
+Проект: Искусственная иммунная сеть для поиска кратчайшего пути в графе
+Студент: Сидоренко Максим
+Вариант: 3
+Алгоритм: искусственная иммунная сеть
+
+Проверено:
+1. Демонстрационный запуск `python main.py` выполнен успешно.
+2. Эксперименты `python -m src.experiments` выполнены успешно.
+3. Графики и CSV с результатами созданы в папке results/.
+4. Добавлен скрипт `python -m src.compare_with_partner path/to/ga_results.csv` для будущего сравнения с ГА напарника.
+5. В report/ лежит готовый отчёт DOCX и PDF.
+6. В report/ лежит шпаргалка для защиты DOCX и PDF.
+7. README обновлён: описаны запуск, структура, что сдавать и как сравнивать с напарником.
+
+Основные файлы для сдачи:
+- report/Отчет_Сидоренко_Максим_ИС_кратчайший_путь.docx
+- main.py
+- src/immune_network.py
+- src/graph_model.py
+- src/experiments.py
+- results/experiment_results.csv
+- results/time_vs_graph_size.png
+- results/objective_vs_iterations.png
+- results/path_visualization.png
+

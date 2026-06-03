@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>ИС · Кратчайший путь</title>
+		<style>
+			:root {
+				--bg: #07111f;
+				--bg2: #101936;
+				--card: #101b2e;
+				--card2: #14223a;
+				--line: #2a3a58;
+				--text: #f7fafc;
+				--muted: #9fb3c8;
+				--cyan: #00d5ff;
+				--mint: #46f0c2;
+				--violet: #8b5cf6;
+				--amber: #fbbf24;
+				--red: #f43f5e;
+				--shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
+				--radius: 24px;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				font-family: 'Segoe UI', Arial, sans-serif;
+				color: var(--text);
+				background:
+					radial-gradient(
+						circle at 80% 10%,
+						rgba(0, 213, 255, 0.22),
+						transparent 34%
+					),
+					radial-gradient(
+						circle at 20% 85%,
+						rgba(139, 92, 246, 0.22),
+						transparent 34%
+					),
+					linear-gradient(135deg, var(--bg), var(--bg2));
+				min-height: 100vh;
+			}
+			body:before {
+				content: '';
+				position: fixed;
+				inset: 0;
+				pointer-events: none;
+				opacity: 0.35;
+				background-image:
+					linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+					linear-gradient(
+						90deg,
+						rgba(255, 255, 255, 0.035) 1px,
+						transparent 1px
+					);
+				background-size: 42px 42px;
+				mask-image: radial-gradient(circle at center, black, transparent 75%);
+			}
+			.app {
+				max-width: 1480px;
+				margin: 0 auto;
+				padding: 28px;
+			}
+			.hero {
+				display: grid;
+				grid-template-columns: 1.1fr 0.9fr;
+				gap: 22px;
+				align-items: stretch;
+				margin-bottom: 22px;
+			}
+			.panel {
+				background: linear-gradient(
+					180deg,
+					rgba(20, 34, 58, 0.84),
+					rgba(12, 22, 39, 0.84)
+				);
+				border: 1px solid rgba(159, 179, 200, 0.18);
+				border-radius: var(--radius);
+				box-shadow: var(--shadow);
+				backdrop-filter: blur(16px);
+			}
+			.headline {
+				padding: 30px 34px;
+				position: relative;
+				overflow: hidden;
+			}
+			.headline:after {
+				content: '';
+				position: absolute;
+				right: -130px;
+				top: -130px;
+				width: 360px;
+				height: 360px;
+				background: radial-gradient(
+					circle,
+					rgba(0, 213, 255, 0.38),
+					transparent 65%
+				);
+				filter: blur(8px);
+			}
+			.chip {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				padding: 8px 12px;
+				background: rgba(70, 240, 194, 0.14);
+				border: 1px solid rgba(70, 240, 194, 0.34);
+				border-radius: 999px;
+				color: var(--mint);
+				font-size: 12px;
+				font-weight: 800;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+			}
+			h1 {
+				font-size: 48px;
+				line-height: 1.02;
+				margin: 18px 0 12px;
+				letter-spacing: -0.04em;
+			}
+			.subtitle {
+				font-size: 18px;
+				color: var(--muted);
+				max-width: 760px;
+				line-height: 1.55;
+			}
+			.heroStats {
+				display: grid;
+				grid-template-columns: repeat(2, 1fr);
+				gap: 14px;
+				padding: 18px;
+			}
+			.stat {
+				background: rgba(7, 17, 31, 0.52);
+				border: 1px solid rgba(42, 58, 88, 0.9);
+				border-radius: 20px;
+				padding: 18px;
+				min-height: 116px;
+			}
+			.stat .v {
+				font-size: 34px;
+				font-weight: 900;
+				color: var(--cyan);
+				letter-spacing: -0.03em;
+			}
+			.stat .l {
+				color: var(--muted);
+				margin-top: 6px;
+				line-height: 1.3;
+			}
+			.grid {
+				display: grid;
+				grid-template-columns: 360px 1fr 380px;
+				gap: 22px;
+			}
+			.sectionTitle {
+				font-size: 15px;
+				text-transform: uppercase;
+				color: var(--cyan);
+				letter-spacing: 0.12em;
+				font-weight: 900;
+				margin: 0 0 16px;
+			}
+			.controls {
+				padding: 22px;
+				position: sticky;
+				top: 20px;
+				align-self: start;
+			}
+			.field {
+				margin-bottom: 14px;
+			}
+			.field label {
+				display: flex;
+				justify-content: space-between;
+				font-size: 13px;
+				color: var(--muted);
+				margin-bottom: 7px;
+			}
+			input[type='number'],
+			input[type='range'] {
+				width: 100%;
+				background: #07111f;
+				color: var(--text);
+				border: 1px solid var(--line);
+				border-radius: 14px;
+				padding: 12px 13px;
+				outline: none;
+			}
+			input[type='range'] {
+				padding: 0;
+				accent-color: var(--cyan);
+			}
+			.btn {
+				width: 100%;
+				border: 0;
+				border-radius: 16px;
+				padding: 14px 16px;
+				cursor: pointer;
+				font-weight: 900;
+				letter-spacing: 0.01em;
+				margin-top: 10px;
+				background: linear-gradient(135deg, var(--cyan), var(--mint));
+				color: #06101d;
+				box-shadow: 0 12px 28px rgba(0, 213, 255, 0.2);
+			}
+			.btn.secondary {
+				background: rgba(255, 255, 255, 0.06);
+				color: var(--text);
+				border: 1px solid var(--line);
+				box-shadow: none;
+			}
+			.btn.violet {
+				background: linear-gradient(135deg, var(--violet), #d946ef);
+				color: white;
+			}
+			.btn:disabled {
+				opacity: 0.55;
+				cursor: not-allowed;
+			}
+			.graphPanel {
+				padding: 18px;
+				min-height: 680px;
+			}
+			.graphTop {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 10px;
+			}
+			.legend {
+				display: flex;
+				gap: 10px;
+				flex-wrap: wrap;
+				color: var(--muted);
+				font-size: 12px;
+			}
+			.dot {
+				width: 10px;
+				height: 10px;
+				border-radius: 50%;
+				display: inline-block;
+				margin-right: 5px;
+			}
+			#graphSvg {
+				width: 100%;
+				height: 590px;
+				background: rgba(7, 17, 31, 0.38);
+				border: 1px solid rgba(42, 58, 88, 0.85);
+				border-radius: 24px;
+				overflow: hidden;
+			}
+			.side {
+				display: flex;
+				flex-direction: column;
+				gap: 22px;
+			}
+			.resultCard {
+				padding: 22px;
+			}
+			.kpis {
+				display: grid;
+				grid-template-columns: repeat(2, 1fr);
+				gap: 12px;
+			}
+			.kpi {
+				background: rgba(7, 17, 31, 0.5);
+				border: 1px solid var(--line);
+				border-radius: 18px;
+				padding: 14px;
+			}
+			.kpi .num {
+				font-size: 28px;
+				font-weight: 900;
+				color: var(--mint);
+			}
+			.kpi .txt {
+				font-size: 12px;
+				color: var(--muted);
+				margin-top: 4px;
+			}
+			.explain {
+				padding: 22px;
+			}
+			.step {
+				display: flex;
+				gap: 12px;
+				padding: 12px;
+				border: 1px solid rgba(42, 58, 88, 0.65);
+				border-radius: 16px;
+				margin-bottom: 10px;
+				background: rgba(7, 17, 31, 0.35);
+			}
+			.step .n {
+				width: 28px;
+				height: 28px;
+				border-radius: 50%;
+				background: var(--cyan);
+				color: #07111f;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-weight: 900;
+				flex: 0 0 auto;
+			}
+			.step .t {
+				color: var(--muted);
+				font-size: 13px;
+				line-height: 1.38;
+			}
+			.chartPanel {
+				grid-column: 1/-1;
+				padding: 22px;
+			}
+			.charts {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 18px;
+			}
+			.chartBox {
+				height: 320px;
+				background: rgba(7, 17, 31, 0.45);
+				border: 1px solid var(--line);
+				border-radius: 22px;
+				padding: 14px;
+			}
+			canvas {
+				width: 100%;
+				height: 100%;
+			}
+			.tableWrap {
+				overflow: auto;
+				max-height: 360px;
+				border: 1px solid var(--line);
+				border-radius: 18px;
+			}
+			table {
+				border-collapse: collapse;
+				width: 100%;
+				min-width: 820px;
+				font-size: 13px;
+			}
+			th,
+			td {
+				padding: 12px 14px;
+				border-bottom: 1px solid rgba(42, 58, 88, 0.7);
+				text-align: left;
+			}
+			th {
+				color: var(--cyan);
+				background: rgba(17, 28, 48, 0.92);
+				position: sticky;
+				top: 0;
+			}
+			td {
+				color: var(--text);
+			}
+			.log {
+				height: 210px;
+				overflow: auto;
+				background: #050b14;
+				border: 1px solid var(--line);
+				border-radius: 18px;
+				padding: 14px;
+				font-family: Consolas, monospace;
+				font-size: 12px;
+				color: #cde6ff;
+			}
+			.pathBadge {
+				padding: 10px 12px;
+				border-radius: 15px;
+				background: rgba(70, 240, 194, 0.12);
+				color: var(--mint);
+				border: 1px solid rgba(70, 240, 194, 0.32);
+				font-weight: 800;
+				word-break: break-word;
+			}
+			.small {
+				font-size: 12px;
+				color: var(--muted);
+				line-height: 1.4;
+			}
+			@media (max-width: 1180px) {
+				.grid {
+					grid-template-columns: 1fr;
+				}
+				.controls {
+					position: relative;
+				}
+				.hero {
+					grid-template-columns: 1fr;
+				}
+				.charts {
+					grid-template-columns: 1fr;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="app">
+			<div class="hero">
+				<div class="panel headline">
+					<div class="chip">Вариант 3 · Искусственная иммунная сеть</div>
+					<h1>Поиск кратчайшего<br />пути в графе</h1>
+					<div class="subtitle">Используется алгоритм иммунной системы</div>
+				</div>
+				<div class="panel heroStats">
+					<div class="stat">
+						<div class="v" id="heroVertices">—</div>
+						<div class="l">вершин в текущем графе</div>
+					</div>
+					<div class="stat">
+						<div class="v" id="heroEdges">—</div>
+						<div class="l">рёбер в текущем графе</div>
+					</div>
+					<div class="stat">
+						<div class="v" id="heroBest">—</div>
+						<div class="l">длина пути ИС</div>
+					</div>
+					<div class="stat">
+						<div class="v" id="heroDev">—</div>
+						<div class="l">отклонение от Дейкстры</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="grid">
+				<div class="panel controls">
+					<h3 class="sectionTitle">Управление</h3>
+					<div class="field">
+						<label>Вершины <span id="verticesVal">18</span></label
+						><input id="vertices" type="range" min="6" max="80" value="18" />
+					</div>
+					<div class="field">
+						<label>Рёбра <span id="edgesVal">38</span></label
+						><input id="edges" type="range" min="8" max="220" value="38" />
+					</div>
+					<div class="field">
+						<label>Итерации <span id="iterVal">120</span></label
+						><input
+							id="iterations"
+							type="range"
+							min="30"
+							max="300"
+							value="120"
+						/>
+					</div>
+					<div class="field">
+						<label>Популяция <span id="popVal">70</span></label
+						><input
+							id="population"
+							type="range"
+							min="20"
+							max="140"
+							value="70"
+						/>
+					</div>
+					<div class="field">
+						<label>Мутация <span id="mutVal">0.50</span></label
+						><input
+							id="mutation"
+							type="range"
+							min="0.05"
+							max="0.95"
+							step="0.05"
+							value="0.50"
+						/>
+					</div>
+					<button class="btn secondary" onclick="loadDemo()">
+						Загрузить демо-граф
+					</button>
+					<button class="btn secondary" onclick="generateGraph()">
+						Сгенерировать граф
+					</button>
+					<button class="btn" id="runBtn" onclick="runAlgorithm()">
+						Запустить ИС
+					</button>
+					<button class="btn violet" id="expBtn" onclick="runExperiments()">
+						Построить серию экспериментов
+					</button>
+					<p class="small">
+						Подсказка: сначала сгенерируй граф, затем запусти ИС. Результаты
+						сохраняются в папку <b>results</b>.
+					</p>
+				</div>
+
+				<div class="panel graphPanel">
+					<div class="graphTop">
+						<h3 class="sectionTitle" style="margin: 0">
+							Граф и найденный путь
+						</h3>
+						<div class="legend">
+							<span
+								><i class="dot" style="background: var(--mint)"></i>старт</span
+							>
+							<span
+								><i class="dot" style="background: var(--violet)"></i
+								>финиш</span
+							>
+							<span
+								><i class="dot" style="background: var(--cyan)"></i>путь
+								ИС</span
+							>
+						</div>
+					</div>
+					<svg id="graphSvg" viewBox="0 0 1000 620"></svg>
+				</div>
+
+				<div class="side">
+					<div class="panel resultCard">
+						<h3 class="sectionTitle">Результат запуска</h3>
+						<div class="kpis">
+							<div class="kpi">
+								<div class="num" id="kpiImmune">—</div>
+								<div class="txt">длина пути ИС</div>
+							</div>
+							<div class="kpi">
+								<div class="num" id="kpiDijkstra">—</div>
+								<div class="txt">длина Дейкстры</div>
+							</div>
+							<div class="kpi">
+								<div class="num" id="kpiDev">—</div>
+								<div class="txt">отклонение</div>
+							</div>
+							<div class="kpi">
+								<div class="num" id="kpiTime">—</div>
+								<div class="txt">время выполнения</div>
+							</div>
+						</div>
+						<p class="small" style="margin-top: 18px">Найденный путь:</p>
+						<div class="pathBadge" id="pathText">
+							Пока алгоритм не запускался
+						</div>
+					</div>
+
+					<div class="panel explain">
+						<h3 class="sectionTitle">Что происходит внутри</h3>
+						<div id="steps">
+							<div class="step">
+								<div class="n">1</div>
+								<div class="t">
+									Антитело — это возможный путь от стартовой вершины к конечной.
+								</div>
+							</div>
+							<div class="step">
+								<div class="n">2</div>
+								<div class="t">Аффинность выше у более короткого пути.</div>
+							</div>
+							<div class="step">
+								<div class="n">3</div>
+								<div class="t">
+									Лучшие пути клонируются, мутируют и сохраняются в памяти.
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="panel chartPanel">
+					<h3 class="sectionTitle">Графики и диагностика</h3>
+					<div class="charts">
+						<div class="chartBox"><canvas id="historyChart"></canvas></div>
+						<div class="chartBox"><canvas id="timeChart"></canvas></div>
+					</div>
+					<div style="margin-top: 18px" class="tableWrap">
+						<table id="expTable">
+							<thead>
+								<tr>
+									<th>Алгоритм</th>
+									<th>V</th>
+									<th>E</th>
+									<th>ИС</th>
+									<th>Дейкстра</th>
+									<th>Откл.</th>
+									<th>Время</th>
+									<th>Путь</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td colspan="8" style="color: var(--muted)">
+										Эксперименты ещё не запускались из GUI.
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<h3 class="sectionTitle" style="margin-top: 22px">Журнал</h3>
+					<div class="log" id="log"></div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			let graph = null;
+			let lastPath = [];
+			let lastDijkstra = [];
+			let historyValues = [];
+			let timeRows = [];
+
+			const svg = document.getElementById('graphSvg');
+			const logBox = document.getElementById('log');
+
+			function log(msg) {
+				const t = new Date().toLocaleTimeString();
+				logBox.innerHTML += `[${t}] ${msg}<br>`;
+				logBox.scrollTop = logBox.scrollHeight;
+			}
+
+			function bindRange(id, label, fmt = v => v) {
+				const el = document.getElementById(id),
+					lab = document.getElementById(label);
+				const upd = () => (lab.textContent = fmt(el.value));
+				el.addEventListener('input', upd);
+				upd();
+			}
+			bindRange('vertices', 'verticesVal');
+			bindRange('edges', 'edgesVal');
+			bindRange('iterations', 'iterVal');
+			bindRange('population', 'popVal');
+			bindRange('mutation', 'mutVal', v => Number(v).toFixed(2));
+
+			function setBusy(flag) {
+				document.getElementById('runBtn').disabled = flag;
+				document.getElementById('expBtn').disabled = flag;
+			}
+
+			async function api(url, body = null) {
+				const opts = body
+					? {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify(body),
+						}
+					: {};
+				const res = await fetch(url, opts);
+				const data = await res.json();
+				if (!res.ok || data.error) throw new Error(data.error || 'Ошибка API');
+				return data;
+			}
+
+			function updateHero() {
+				if (!graph) return;
+				document.getElementById('heroVertices').textContent = graph.vertices;
+				document.getElementById('heroEdges').textContent = graph.edges.length;
+			}
+
+			function drawGraph() {
+				if (!graph) return;
+				svg.innerHTML = '';
+				const W = 1000,
+					H = 620;
+				const pos = {};
+				for (const [k, v] of Object.entries(graph.positions)) {
+					pos[k] = { x: v.x * W, y: v.y * H };
+				}
+				const pathEdges = new Set();
+				for (let i = 0; i < lastPath.length - 1; i++) {
+					const a = Math.min(lastPath[i], lastPath[i + 1]),
+						b = Math.max(lastPath[i], lastPath[i + 1]);
+					pathEdges.add(`${a}-${b}`);
+				}
+				const dijkstraEdges = new Set();
+				for (let i = 0; i < lastDijkstra.length - 1; i++) {
+					const a = Math.min(lastDijkstra[i], lastDijkstra[i + 1]),
+						b = Math.max(lastDijkstra[i], lastDijkstra[i + 1]);
+					dijkstraEdges.add(`${a}-${b}`);
+				}
+
+				const defs = document.createElementNS(
+					'http://www.w3.org/2000/svg',
+					'defs',
+				);
+				defs.innerHTML = `
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="edgeGrad" x1="0" x2="1"><stop offset="0" stop-color="#00d5ff"/><stop offset="1" stop-color="#46f0c2"/></linearGradient>`;
+				svg.appendChild(defs);
+
+				for (const e of graph.edges) {
+					const p1 = pos[e.u],
+						p2 = pos[e.v];
+					const key = `${Math.min(e.u, e.v)}-${Math.max(e.u, e.v)}`;
+					const isPath = pathEdges.has(key);
+					const line = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'line',
+					);
+					line.setAttribute('x1', p1.x);
+					line.setAttribute('y1', p1.y);
+					line.setAttribute('x2', p2.x);
+					line.setAttribute('y2', p2.y);
+					line.setAttribute('stroke', isPath ? 'url(#edgeGrad)' : '#42526e');
+					line.setAttribute('stroke-width', isPath ? 6 : 1.6);
+					line.setAttribute('opacity', isPath ? 1 : 0.55);
+					if (isPath) line.setAttribute('filter', 'url(#glow)');
+					svg.appendChild(line);
+
+					if (isPath) {
+						const tx = (p1.x + p2.x) / 2,
+							ty = (p1.y + p2.y) / 2;
+						const label = document.createElementNS(
+							'http://www.w3.org/2000/svg',
+							'text',
+						);
+						label.setAttribute('x', tx);
+						label.setAttribute('y', ty - 8);
+						label.setAttribute('fill', '#f7fafc');
+						label.setAttribute('font-size', '15');
+						label.setAttribute('font-weight', '800');
+						label.setAttribute('text-anchor', 'middle');
+						label.textContent = e.weight;
+						svg.appendChild(label);
+					}
+				}
+
+				for (let i = 0; i < graph.vertices; i++) {
+					const p = pos[i];
+					const isStart = i === graph.start;
+					const isTarget = i === graph.target;
+					const isPath = lastPath.includes(i);
+					const c = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'circle',
+					);
+					c.setAttribute('cx', p.x);
+					c.setAttribute('cy', p.y);
+					c.setAttribute('r', isStart || isTarget ? 21 : isPath ? 18 : 14);
+					c.setAttribute(
+						'fill',
+						isStart
+							? '#46f0c2'
+							: isTarget
+								? '#8b5cf6'
+								: isPath
+									? '#00d5ff'
+									: '#16233b',
+					);
+					c.setAttribute(
+						'stroke',
+						isPath || isStart || isTarget ? '#f7fafc' : '#00d5ff',
+					);
+					c.setAttribute(
+						'stroke-width',
+						isPath || isStart || isTarget ? 2.5 : 1.2,
+					);
+					if (isPath || isStart || isTarget)
+						c.setAttribute('filter', 'url(#glow)');
+					svg.appendChild(c);
+
+					const txt = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'text',
+					);
+					txt.setAttribute('x', p.x);
+					txt.setAttribute('y', p.y + 5);
+					txt.setAttribute('fill', isStart || isTarget ? '#07111f' : '#f7fafc');
+					txt.setAttribute('font-size', '14');
+					txt.setAttribute('font-weight', '900');
+					txt.setAttribute('text-anchor', 'middle');
+					txt.textContent = i;
+					svg.appendChild(txt);
+				}
+			}
+
+			function drawLineChart(canvasId, values, options = {}) {
+				const c = document.getElementById(canvasId);
+				const ctx = c.getContext('2d');
+				const rect = c.getBoundingClientRect();
+				c.width = rect.width * devicePixelRatio;
+				c.height = rect.height * devicePixelRatio;
+				ctx.scale(devicePixelRatio, devicePixelRatio);
+				const w = rect.width,
+					h = rect.height;
+				ctx.clearRect(0, 0, w, h);
+				ctx.fillStyle = '#08111f';
+				ctx.fillRect(0, 0, w, h);
+				ctx.strokeStyle = '#2a3a58';
+				ctx.lineWidth = 1;
+				for (let i = 0; i < 5; i++) {
+					const y = 40 + (i * (h - 80)) / 4;
+					ctx.beginPath();
+					ctx.moveTo(50, y);
+					ctx.lineTo(w - 25, y);
+					ctx.stroke();
+				}
+				if (!values || values.length === 0) {
+					ctx.fillStyle = '#9fb3c8';
+					ctx.font = '14px Segoe UI';
+					ctx.fillText('Нет данных для графика', 55, 55);
+					return;
+				}
+				const min = Math.min(...values),
+					max = Math.max(...values);
+				const span = Math.max(max - min, 1e-9);
+				const px = i => 50 + (i * (w - 80)) / (values.length - 1 || 1);
+				const py = v => 30 + ((max - v) * (h - 70)) / span;
+				ctx.strokeStyle = options.color || '#00d5ff';
+				ctx.lineWidth = 3;
+				ctx.beginPath();
+				values.forEach((v, i) => {
+					const x = px(i),
+						y = py(v);
+					if (i === 0) ctx.moveTo(x, y);
+					else ctx.lineTo(x, y);
+				});
+				ctx.stroke();
+				ctx.fillStyle = '#f7fafc';
+				ctx.font = 'bold 16px Segoe UI';
+				ctx.fillText(options.title || 'График', 20, 24);
+				ctx.fillStyle = '#9fb3c8';
+				ctx.font = '12px Segoe UI';
+				ctx.fillText(
+					`min ${min.toFixed(3)} · max ${max.toFixed(3)}`,
+					20,
+					h - 16,
+				);
+			}
+
+			function drawBarChart(canvasId, rows) {
+				const c = document.getElementById(canvasId);
+				const ctx = c.getContext('2d');
+				const rect = c.getBoundingClientRect();
+				c.width = rect.width * devicePixelRatio;
+				c.height = rect.height * devicePixelRatio;
+				ctx.scale(devicePixelRatio, devicePixelRatio);
+				const w = rect.width,
+					h = rect.height;
+				ctx.clearRect(0, 0, w, h);
+				ctx.fillStyle = '#08111f';
+				ctx.fillRect(0, 0, w, h);
+				ctx.fillStyle = '#f7fafc';
+				ctx.font = 'bold 16px Segoe UI';
+				ctx.fillText('Время от размерности', 20, 24);
+				if (!rows || rows.length === 0) {
+					ctx.fillStyle = '#9fb3c8';
+					ctx.font = '14px Segoe UI';
+					ctx.fillText('Запусти серию экспериментов', 55, 55);
+					return;
+				}
+				const vals = rows.map(r => Number(r.execution_time_sec));
+				const max = Math.max(...vals, 0.001);
+				const bw = (w - 90) / rows.length - 12;
+				rows.forEach((r, i) => {
+					const val = Number(r.execution_time_sec);
+					const bh = (val / max) * (h - 90);
+					const x = 55 + i * ((w - 90) / rows.length) + 6;
+					const y = h - 45 - bh;
+					const grad = ctx.createLinearGradient(0, y, 0, h - 45);
+					grad.addColorStop(0, '#00d5ff');
+					grad.addColorStop(1, '#46f0c2');
+					ctx.fillStyle = grad;
+					ctx.beginPath();
+					ctx.roundRect(x, y, bw, bh, 8);
+					ctx.fill();
+					ctx.fillStyle = '#9fb3c8';
+					ctx.font = '11px Segoe UI';
+					ctx.textAlign = 'center';
+					ctx.fillText(r.graph_vertices, x + bw / 2, h - 24);
+					ctx.fillStyle = '#f7fafc';
+					ctx.fillText(val.toFixed(2), x + bw / 2, y - 8);
+				});
+				ctx.textAlign = 'left';
+			}
+
+			async function loadDemo() {
+				log('Загружаю демо-граф...');
+				graph = await api('/api/demo');
+				lastPath = [];
+				lastDijkstra = [];
+				updateHero();
+				drawGraph();
+				log(
+					`Демо-граф загружен: ${graph.vertices} вершин, ${graph.edges.length} рёбер.`,
+				);
+			}
+
+			async function generateGraph() {
+				const vertices = Number(document.getElementById('vertices').value);
+				const edges = Number(document.getElementById('edges').value);
+				log(`Генерирую граф: V=${vertices}, E=${edges}...`);
+				graph = await api('/api/generate', {
+					vertices,
+					edges,
+					seed: Date.now() % 100000,
+				});
+				lastPath = [];
+				lastDijkstra = [];
+				updateHero();
+				drawGraph();
+				log(
+					`Граф создан: ${graph.vertices} вершин, ${graph.edges.length} рёбер.`,
+				);
+			}
+
+			async function runAlgorithm() {
+				if (!graph) await loadDemo();
+				setBusy(true);
+				log('Запускаю искусственную иммунную сеть...');
+				try {
+					const payload = {
+						iterations: Number(document.getElementById('iterations').value),
+						population_size: Number(
+							document.getElementById('population').value,
+						),
+						mutation_rate: Number(document.getElementById('mutation').value),
+					};
+					const res = await api('/api/run', payload);
+					const s = res.summary;
+					lastPath = s.immune_path;
+					lastDijkstra = s.dijkstra_path;
+					historyValues = res.history || [];
+					document.getElementById('heroBest').textContent = Number(
+						s.immune_path_length,
+					).toFixed(0);
+					document.getElementById('heroDev').textContent =
+						Number(s.deviation_percent).toFixed(2) + '%';
+					document.getElementById('kpiImmune').textContent = Number(
+						s.immune_path_length,
+					).toFixed(2);
+					document.getElementById('kpiDijkstra').textContent = Number(
+						s.dijkstra_path_length,
+					).toFixed(2);
+					document.getElementById('kpiDev').textContent =
+						Number(s.deviation_percent).toFixed(2) + '%';
+					document.getElementById('kpiTime').textContent =
+						Number(s.elapsed_time_sec).toFixed(3) + ' c';
+					document.getElementById('pathText').textContent =
+						s.immune_path.join(' → ');
+					drawGraph();
+					drawLineChart('historyChart', historyValues, {
+						title: 'Целевая функция по итерациям',
+						color: '#46f0c2',
+					});
+					const steps = document.getElementById('steps');
+					steps.innerHTML = '';
+					(res.explain || []).forEach((t, i) => {
+						steps.innerHTML += `<div class="step"><div class="n">${i + 1}</div><div class="t">${t}</div></div>`;
+					});
+					log(
+						`Готово. Путь ИС: ${s.immune_path.join(' -> ')}, длина ${Number(s.immune_path_length).toFixed(2)}, отклонение ${Number(s.deviation_percent).toFixed(2)}%.`,
+					);
+				} catch (e) {
+					log('ОШИБКА: ' + e.message);
+					alert(e.message);
+				} finally {
+					setBusy(false);
+				}
+			}
+
+			async function runExperiments() {
+				setBusy(true);
+				log(
+					'Запускаю серию экспериментов. Это может занять немного времени...',
+				);
+				try {
+					const res = await api('/api/experiments', {});
+					timeRows = res.rows || [];
+					drawBarChart('timeChart', timeRows);
+					const tbody = document.querySelector('#expTable tbody');
+					tbody.innerHTML = '';
+					timeRows.forEach(r => {
+						tbody.innerHTML += `<tr>
+        <td>${r.algorithm}</td><td>${r.graph_vertices}</td><td>${r.graph_edges}</td>
+        <td>${r.best_path_length}</td><td>${r.dijkstra_path_length}</td>
+        <td style="color:var(--mint);font-weight:800">${r.deviation_percent}%</td>
+        <td>${Number(r.execution_time_sec).toFixed(3)} c</td><td>${r.best_path}</td>
+      </tr>`;
+					});
+					log(
+						'Серия экспериментов завершена. CSV и PNG сохранены в папке results.',
+					);
+				} catch (e) {
+					log('ОШИБКА: ' + e.message);
+					alert(e.message);
+				} finally {
+					setBusy(false);
+				}
+			}
+
+			window.addEventListener('resize', () => {
+				drawLineChart('historyChart', historyValues, {
+					title: 'Целевая функция по итерациям',
+					color: '#46f0c2',
+				});
+				drawBarChart('timeChart', timeRows);
+			});
+
+			loadDemo();
+			drawLineChart('historyChart', [], {
+				title: 'Целевая функция по итерациям',
+				color: '#46f0c2',
+			});
+			drawBarChart('timeChart', []);
+		</script>
+	</body>
+</html>

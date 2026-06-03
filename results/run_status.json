@@ -1,0 +1,8 @@
+{
+  "demo_returncode": 0,
+  "experiments_returncode": 0,
+  "demo_stdout": "=== Искусственная иммунная сеть: кратчайший путь ===\nГраф: 14 вершин, 30 рёбер\nСтартовая вершина: 0\nКонечная вершина: 13\nПуть ИС: 0 -> 5 -> 13\nДлина пути ИС: 12.0000\nЭталон Дейкстры: 0 -> 5 -> 13\nДлина по Дейкстре: 12.0000\nОтклонение: 0.00%\nВремя выполнения ИС: 2.689553 сек\n",
+  "demo_stderr": "",
+  "experiments_stdout": "Эксперименты завершены. Полученные строки:\n{'algorithm': 'Immune Network', 'graph_vertices': 10, 'graph_edges': 18, 'start_vertex': 0, 'target_vertex': 9, 'best_path_length': 20.0, 'dijkstra_path_length': 20.0, 'deviation_percent': 0.0, 'execution_time_sec': 0.141507, 'iterations': 45, 'best_path': '0 -> 6 -> 8 -> 9'}\n{'algorithm': 'Immune Network', 'graph_vertices': 18, 'graph_edges': 38, 'start_vertex': 0, 'target_vertex': 17, 'best_path_length': 17.0, 'dijkstra_path_length': 17.0, 'deviation_percent': 0.0, 'execution_time_sec': 0.242556, 'iterations': 55, 'best_path': '0 -> 1 -> 6 -> 17'}\n{'algorithm': 'Immune Network', 'graph_vertices': 26, 'graph_edges': 65, 'start_vertex': 0, 'target_vertex': 25, 'best_path_length': 28.0, 'dijkstra_path_length': 28.0, 'deviation_percent': 0.0, 'execution_time_sec': 0.377556, 'iterations': 65, 'best_path': '0 -> 13 -> 7 -> 25'}\n{'algorithm': 'Immune Network', 'graph_vertices': 34, 'graph_edges': 95, 'start_vertex': 0, 'target_vertex': 33, 'best_path_length': 28.0, 'dijkstra_path_length': 28.0, 'deviation_percent': 0.0, 'execution_time_sec': 0.553924, 'iterations': 75, 'best_path': '0 -> 25 -> 28 -> 5 -> 14 -> 33'}\n",
+  "experiments_stderr": ""
+}
