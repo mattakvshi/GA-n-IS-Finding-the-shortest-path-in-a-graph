@@ -2,25 +2,25 @@
   "algorithm": "Immune Network",
   "student": "Сидоренко Максим",
   "variant": "3 - shortest path in graph",
-  "graph_vertices": 18,
-  "graph_edges": 38,
+  "graph_vertices": 51,
+  "graph_edges": 146,
   "start": 0,
-  "target": 17,
+  "target": 50,
   "immune_path": [
     0,
-    15,
-    17
+    49,
+    50
   ],
-  "immune_path_length": 10.0,
+  "immune_path_length": 16.0,
   "dijkstra_path": [
     0,
-    15,
-    17
+    49,
+    50
   ],
-  "dijkstra_path_length": 10.0,
+  "dijkstra_path_length": 16.0,
   "deviation_percent": 0.0,
-  "elapsed_time_sec": 1.4202195999678224,
-  "iterations": 120,
-  "population_size": 70,
-  "mutation_rate": 0.5
+  "elapsed_time_sec": 0.059118099976330996,
+  "iterations": 30,
+  "population_size": 20,
+  "mutation_rate": 0.05
 }

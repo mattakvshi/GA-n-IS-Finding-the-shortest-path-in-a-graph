@@ -1,5 +1,5 @@
 algorithm,graph_vertices,graph_edges,start_vertex,target_vertex,best_path_length,dijkstra_path_length,deviation_percent,execution_time_sec,iterations,best_path
-Immune Network,10,18,0,9,20.0,20.0,0.0,0.087582,45,0 -> 6 -> 8 -> 9
-Immune Network,18,38,0,17,17.0,17.0,0.0,0.154037,55,0 -> 1 -> 6 -> 17
-Immune Network,26,65,0,25,28.0,28.0,0.0,0.238382,65,0 -> 13 -> 7 -> 25
-Immune Network,34,95,0,33,28.0,28.0,0.0,0.351482,75,0 -> 25 -> 28 -> 5 -> 14 -> 33
+Immune Network,10,18,0,9,20.0,20.0,0.0,0.098411,45,0 -> 6 -> 8 -> 9
+Immune Network,18,38,0,17,17.0,17.0,0.0,0.173881,55,0 -> 1 -> 6 -> 17
+Immune Network,26,65,0,25,28.0,28.0,0.0,0.245209,65,0 -> 13 -> 7 -> 25
+Immune Network,34,95,0,33,28.0,28.0,0.0,41.014326,75,0 -> 25 -> 28 -> 5 -> 14 -> 33

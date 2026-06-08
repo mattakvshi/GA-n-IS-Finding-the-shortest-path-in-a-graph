@@ -1,43 +1,78 @@
-"""Искусственная иммунная сеть для поиска кратчайшего пути в графе."""
-
+# Импорт из __future__ откладывает вычисление аннотаций типов.
+# Это позволяет писать типы вроде "Antibody" до полного создания класса и использовать современный синтаксис.
 from __future__ import annotations
 
+# Импорт dataclass: декоратор автоматически создаёт __init__, __repr__, сравнение и другие методы для классов-структур данных.
 from dataclasses import dataclass
+# Импорт List и Tuple нужен для аннотаций типов: список вершин пути и кортеж-ключ пути.
 from typing import List, Tuple
+# Импорт random нужен для случайных процедур алгоритма: генерация путей, выбор мутаций, случайная инъекция решений.
 import random
+# Импорт time нужен для измерения времени выполнения алгоритма.
 import time
 
+# Импорт класса WeightedGraph из соседнего модуля проекта.
+# Именно через этот объект алгоритм получает граф, соседей, длину пути, проверку корректности пути и кратчайшие мосты.
 from .graph_model import WeightedGraph
 
 
+# Декоратор dataclass превращает класс Antibody в удобный контейнер данных.
+# Он автоматически создаёт конструктор с параметрами path, objective и affinity.
 @dataclass
 class Antibody:
+    # Документация класса: в терминах искусственной иммунной системы антитело — это одно кандидатное решение.
+    # В этой задаче кандидатное решение представлено путём от начальной вершины start до конечной target.
     """Антитело — возможный путь от start до target."""
 
+    # path хранит сам путь: последовательность номеров вершин графа, например [0, 3, 5, 8].
     path: List[int]
+    # objective хранит значение целевой функции. Для задачи кратчайшего пути это суммарная длина пути.
+    # Чем objective меньше, тем путь лучше.
     objective: float
+    # affinity хранит аффинность антитела, то есть меру качества с иммунологической точки зрения.
+    # Здесь она считается как 1 / (1 + objective), поэтому чем путь короче, тем аффинность выше.
     affinity: float
 
+    # Метод clone создаёт независимую копию антитела.
+    # Это нужно при клональном отборе: сначала копируем хорошее решение, потом можем мутировать копию.
     def clone(self) -> "Antibody":
+        # Возвращается новый объект Antibody.
+        # self.path[:] создаёт копию списка вершин, чтобы мутация клона не изменила путь исходного антитела.
+        # objective и affinity копируются как числа, потому что числа в Python неизменяемые.
         return Antibody(path=self.path[:], objective=self.objective, affinity=self.affinity)
 
+    # Декоратор property позволяет обращаться к методу key как к обычному полю: antibody.key.
+    # Это удобно для проверки уникальности путей.
     @property
     def key(self) -> Tuple[int, ...]:
+        # Список path преобразуется в кортеж, потому что кортеж неизменяемый и может быть элементом множества set.
+        # Так алгоритм может быстро проверять, встречался ли уже такой путь.
         return tuple(self.path)
 
 
+# Декоратор dataclass создаёт класс результата как контейнер итоговых данных алгоритма.
 @dataclass
 class ImmuneNetworkResult:
+    # best_path — лучший найденный путь от start до target.
     best_path: List[int]
+    # best_length — длина лучшего найденного пути, то есть значение целевой функции для best_path.
     best_length: float
+    # elapsed_time — фактическое время работы алгоритма в секундах.
     elapsed_time: float
+    # history — история лучшего значения objective по итерациям; нужна для графика сходимости.
     history: List[float]
+    # population_size — размер популяции, с которым запускался алгоритм.
     population_size: int
+    # iterations — количество итераций, выполненных алгоритмом.
     iterations: int
+    # memory — финальная иммунная память: несколько лучших уникальных антител, найденных алгоритмом.
     memory: List[Antibody]
 
 
 class ImmuneNetworkShortestPath:
+    # Документация класса подробно связывает элементы алгоритма с теорией искусственных иммунных систем.
+    # Важно для защиты: здесь видно, что алгоритм не просто случайно ищет путь, а использует клональный отбор,
+    # гипермутацию, супрессию и иммунную память.
     """Искусственная иммунная сеть с клональным отбором и супрессией.
 
     Адаптация к задаче кратчайшего пути:
@@ -50,203 +85,686 @@ class ImmuneNetworkShortestPath:
     - память: лучшие найденные решения.
     """
 
+    # Конструктор получает граф, начальную и конечную вершины, а также параметры иммунного алгоритма.
     def __init__(
+        # self — ссылка на создаваемый объект алгоритма; через self сохраняются параметры и состояние генератора случайностей.
         self,
+        # graph — взвешенный граф, в котором надо найти путь.
         graph: WeightedGraph,
+        # start — номер начальной вершины пути.
         start: int,
+        # target — номер целевой вершины пути.
         target: int,
+        # population_size — сколько антител одновременно находится в популяции.
         population_size: int = 60,
+        # iterations — сколько поколений/итераций иммунная сеть будет улучшать решения.
         iterations: int = 120,
+        # selection_size — сколько лучших антител выбирается на клональный отбор на каждой итерации.
         selection_size: int = 15,
+        # clone_multiplier — базовое число клонов, создаваемых для отобранных антител.
         clone_multiplier: int = 4,
+        # mutation_rate — вероятность применить гипермутацию к отдельному клону.
         mutation_rate: float = 0.45,
+        # suppression_threshold — порог похожести путей, выше которого одно из решений считается слишком похожим и подавляется.
         suppression_threshold: float = 0.85,
+        # random_injection_rate — доля случайных новых антител, вводимых для поддержания разнообразия популяции.
         random_injection_rate: float = 0.20,
+        # memory_size — максимальное количество лучших уникальных решений в иммунной памяти.
         memory_size: int = 8,
+        # seed — зерно генератора случайных чисел; при одинаковом seed результаты становятся воспроизводимыми.
         seed: int | None = 42,
     ) -> None:
+        # Проверка минимального размера популяции.
+        # Очень маленькая популяция плохо подходит для эволюционного/иммунного поиска и может сломать логику отбора.
         if population_size < 4:
+            # Если размер популяции меньше 4, алгоритм останавливается с понятной ошибкой.
             raise ValueError("population_size должен быть не меньше 4.")
+        # Проверка размера отбора: нельзя выбрать меньше одного антитела и нельзя выбрать больше, чем есть в популяции.
         if selection_size < 1 or selection_size > population_size:
+            # Если selection_size некорректен, выбрасывается ошибка с допустимым диапазоном.
             raise ValueError("selection_size должен быть в диапазоне [1, population_size].")
+        # Сохраняем граф в объекте алгоритма, чтобы все методы могли обращаться к его функциям.
         self.graph = graph
+        # Сохраняем стартовую вершину.
         self.start = start
+        # Сохраняем целевую вершину.
         self.target = target
+        # Сохраняем размер популяции.
         self.population_size = population_size
+        # Сохраняем количество итераций.
         self.iterations = iterations
+        # Сохраняем количество антител, которые будут отбираться как лучшие.
         self.selection_size = selection_size
+        # Сохраняем множитель клонирования.
         self.clone_multiplier = clone_multiplier
+        # Сохраняем вероятность мутации.
         self.mutation_rate = mutation_rate
+        # Сохраняем порог супрессии похожих решений.
         self.suppression_threshold = suppression_threshold
+        # Сохраняем долю случайной инъекции новых решений.
         self.random_injection_rate = random_injection_rate
+        # Сохраняем размер иммунной памяти.
         self.memory_size = memory_size
+        # Создаём отдельный генератор случайных чисел для данного объекта алгоритма.
+        # Это лучше, чем использовать глобальный random, потому что эксперимент становится воспроизводимым.
         self.rng = random.Random(seed)
 
+    # Главный публичный метод: запускает полный цикл искусственной иммунной сети.
     def run(self) -> ImmuneNetworkResult:
+        # Строка документации метода: метод запускает алгоритм и возвращает объект результата.
         """Запустить алгоритм."""
+        # Запоминаем момент старта с помощью высокоточного таймера.
         start_time = time.perf_counter()
+        # Создаём начальную популяцию антител: набор случайных допустимых путей.
         population = self._initial_population()
+        # Создаём пустую иммунную память; в неё будут попадать лучшие уникальные пути.
         memory: List[Antibody] = []
+        # Создаём пустую историю качества; сюда на каждой итерации будет записываться лучшая длина пути.
         history: List[float] = []
+        # Основной цикл алгоритма: выполняется ровно self.iterations раз.
+        # Нижнее подчёркивание означает, что номер итерации в теле цикла напрямую не используется.
         for _ in range(self.iterations):
+            # Пересчитываем objective и affinity у всех антител популяции.
+            # Это важно после мутаций, ремонтов и случайных инъекций.
             population = self._evaluate_population(population)
+            # Сортируем популяцию по длине пути: самые короткие пути идут первыми.
             population.sort(key=lambda antibody: antibody.objective)
+            # Обновляем иммунную память лучшими уникальными решениями из старой памяти и текущей популяции.
             memory = self._update_memory(memory, population)
+            # Записываем в историю текущее лучшее значение целевой функции.
+            # memory[0] — лучшее антитело, потому что память отсортирована по objective.
             history.append(memory[0].objective)
+            # Берём selection_size лучших антител для клонирования.
             selected = population[: self.selection_size]
+            # Создаём клоны выбранных антител и применяем к части клонов гипермутацию.
             clones = self._clone_and_mutate(selected)
+            # Пересчитываем качество клонов после возможной мутации.
             clones = self._evaluate_population(clones)
+            # Объединяем текущую популяцию, клоны и иммунную память в общий пул кандидатов.
             combined = population + clones + memory
+            # Сортируем общий пул по качеству: лучшие решения первыми.
             combined.sort(key=lambda antibody: antibody.objective)
+            # Применяем супрессию: удаляем одинаковые и слишком похожие пути, чтобы сохранить разнообразие.
             suppressed = self._suppress(combined)
+            # Обрезаем популяцию до заданного размера.
             population = suppressed[: self.population_size]
+            # Добавляем случайные новые антитела вместо части худших, чтобы алгоритм не застревал в локальном минимуме.
             population = self._inject_random_antibodies(population)
+            # Снова пересчитываем качество после случайных добавлений.
             population = self._evaluate_population(population)
+            # Сортируем популяцию после пересчёта.
             population.sort(key=lambda antibody: antibody.objective)
+            # Ещё раз гарантируем, что размер популяции не превышает population_size.
             population = population[: self.population_size]
+        # После завершения всех итераций финально пересчитываем качество популяции.
         population = self._evaluate_population(population)
+        # Сортируем финальную популяцию по длине пути.
         population.sort(key=lambda antibody: antibody.objective)
+        # Финально обновляем иммунную память с учётом последней популяции.
         memory = self._update_memory(memory, population)
+        # Выбираем лучшее решение: если память не пуста, берём лучшее из памяти, иначе лучшее из популяции.
         best = memory[0] if memory else population[0]
+        # Вычисляем длительность работы алгоритма.
         elapsed = time.perf_counter() - start_time
+        # Возвращаем структурированный результат запуска.
         return ImmuneNetworkResult(
+            # Передаём лучший найденный путь.
             best_path=best.path,
+            # Передаём длину лучшего пути.
             best_length=best.objective,
+            # Передаём время выполнения.
             elapsed_time=elapsed,
+            # Передаём историю качества по итерациям для построения графика сходимости.
             history=history,
+            # Передаём размер популяции, чтобы результат содержал параметры эксперимента.
             population_size=self.population_size,
+            # Передаём число итераций, чтобы результат содержал параметры эксперимента.
             iterations=self.iterations,
+            # Передаём итоговую иммунную память.
             memory=memory,
         )
 
+    # Метод создаёт начальную популяцию антител.
+    # Метод формирует стартовую популяцию антител перед первой итерацией ИИС.
+    # В новой версии он должен создавать пути через собственный случайный генератор, а не через Дейкстру.
     def _initial_population(self) -> List[Antibody]:
-        return [self._make_antibody(self.graph.random_walk_path(self.start, self.target, rng=self.rng)) for _ in range(self.population_size)]
+        # Для каждого места в популяции строится случайный путь _random_valid_path от start до target.
+        # Затем этот путь превращается в полноценное антитело через _make_antibody.
+         # Начинается создание списка антител через list comprehension.
+         # Каждый элемент списка будет отдельным кандидатным решением, то есть отдельным путём в графе.
+         return [
+        # Сначала вызывается _random_valid_path(), который строит случайный допустимый маршрут без поиска кратчайшего пути.
+        # Затем _make_antibody() превращает этот маршрут в антитело: считает длину пути и аффинность.
+        self._make_antibody(self._random_valid_path())
+        # Цикл повторяется population_size раз.
+        # Нижнее подчёркивание используется потому, что номер создаваемого антитела здесь не нужен.
+        for _ in range(self.population_size)
+    # Закрывается список начальной популяции.
+    ]
 
+    # Метод превращает список вершин path в объект Antibody с рассчитанными objective и affinity.
     def _make_antibody(self, path: List[int]) -> Antibody:
+        # Сначала путь ремонтируется, чтобы он начинался в start, заканчивался в target и состоял из существующих рёбер.
         path = self._repair_path(path)
+        # Затем вычисляется целевая функция: длина пути с возможными штрафами для некорректного пути.
         objective = self._objective(path)
+        # Аффинность считается как обратная величина к длине пути.
+        # +1 нужен, чтобы не делить на ноль, если путь вдруг имеет нулевую длину.
         affinity = 1.0 / (1.0 + objective)
+        # Создаётся и возвращается антитело с путём, целевой функцией и аффинностью.
         return Antibody(path=path, objective=objective, affinity=affinity)
 
+    # Метод пересчитывает всю популяцию.
+    # Он полезен после мутаций, потому что путь мог измениться, а objective и affinity должны соответствовать новому пути.
     def _evaluate_population(self, population: List[Antibody]) -> List[Antibody]:
+        # Для каждого антитела берётся его path и заново создаётся Antibody через _make_antibody.
         return [self._make_antibody(antibody.path) for antibody in population]
 
+    # Метод вычисляет значение целевой функции для пути.
+    # Метод вычисляет значение целевой функции для одного пути.
+    # После перехода к настоящей ИИС здесь больше не выполняется ремонт через shortest_path().
+    # Оценка стала честной: корректный путь получает свою длину, некорректный путь получает штраф.
     def _objective(self, path: List[int]) -> float:
+        # Проверяется, является ли список вершин настоящим допустимым маршрутом от start до target.
+        # Путь должен начинаться в self.start, заканчиваться в self.target и проходить только по существующим рёбрам.
         if self.graph.is_valid_path(path, self.start, self.target):
+            # Если путь корректный, целевая функция равна суммарному весу всех рёбер этого пути.
+            # Так как решается задача кратчайшего пути, меньшее значение objective означает лучшее антитело.
             return self.graph.path_length(path)
-        penalty = 10000.0
-        repaired = self._repair_path(path)
-        if self.graph.is_valid_path(repaired, self.start, self.target):
-            return self.graph.path_length(repaired) + penalty
-        return penalty * 10
+        # Если путь некорректный, ему назначается большой штраф.
+        # 100000.0 делает такое решение заведомо хуже нормального маршрута.
+        # len(path) * 100.0 дополнительно ухудшает длинные некорректные последовательности.
+        # Здесь принципиально нет вызова Дейкстры и нет попытки оптимально достроить путь.
+        return 100000.0 + len(path) * 100.0
+    
+    
 
+    # Метод реализует клональный отбор: хорошие антитела копируются, а копии могут мутировать.
     def _clone_and_mutate(self, selected: List[Antibody]) -> List[Antibody]:
+        # Создаём пустой список клонов.
         clones: List[Antibody] = []
+        # Перебираем отобранные антитела вместе с их рангом.
+        # rank = 0 у лучшего антитела, дальше ранг увеличивается.
         for rank, antibody in enumerate(selected):
+            # Чем выше антитело в списке selected, тем больше клонов оно получит.
+            # max(1, ...) гарантирует, что у каждого выбранного антитела будет хотя бы один клон.
             clone_count = max(1, self.clone_multiplier + (self.selection_size - rank) // 4)
+            # Создаём clone_count клонов текущего антитела.
             for _ in range(clone_count):
+                # Создаём независимую копию антитела.
                 clone = antibody.clone()
+                # С вероятностью mutation_rate применяем гипермутацию к пути клона.
                 if self.rng.random() < self.mutation_rate:
+                    # Гипермутация меняет путь клона одним из доступных способов.
                     clone.path = self._hypermutate(clone.path)
+                # Добавляем готовый клон в список clones.
                 clones.append(clone)
+        # Возвращаем все созданные клоны.
         return clones
 
+    # Метод гипермутации изменяет путь-кандидат.
+    # В отличие от простой мутации, здесь может перестраиваться целый участок пути.
+    # Метод выполняет гипермутацию антитела, то есть меняет путь-кандидат.
+    # Это один из ключевых иммунных операторов: он создаёт вариации уже найденных решений.
+    # В новой версии отсюда убран shortcut через shortest_path(), поэтому мутация больше не использует Дейкстру.
     def _hypermutate(self, path: List[int]) -> List[int]:
+        # Если путь слишком короткий, в нём нет нормального внутреннего участка для перестройки.
+        # Например, путь из двух вершин состоит только из start и target.
         if len(path) <= 2:
-            return self.graph.random_walk_path(self.start, self.target, rng=self.rng)
-        mode = self.rng.choice(["rebuild_tail", "insert_detour", "shortcut"])
+            # Вместо попытки мутировать слишком короткий путь создаётся новый случайный допустимый путь.
+            # Это сохраняет стохастический характер ИИС.
+            return self._random_valid_path()
+
+        # Случайно выбирается тип гипермутации.
+        # Все режимы ниже являются случайными операторами изменения пути и не ищут оптимальный маршрут.
+        mode = self.rng.choice([
+            # Режим rebuild_tail сохраняет начало пути и случайно перестраивает хвост.
+            "rebuild_tail",
+            # Режим insert_detour вставляет дополнительный обход через случайную соседнюю вершину.
+            "insert_detour",
+            # Режим reroute_segment случайно перестраивает внутренний участок между двумя вершинами пути.
+            "reroute_segment",
+            # Режим delete_vertex пытается удалить лишнюю промежуточную вершину, если путь останется связным.
+            "delete_vertex",
+        # Заканчивается список возможных режимов гипермутации.
+        ])
+
+        # Начинается обработка режима перестройки хвоста.
         if mode == "rebuild_tail":
+            # Выбирается случайная точка разреза пути.
+            # Последняя вершина не выбирается, потому что хвост должен начинаться до target.
             cut = self.rng.randint(0, len(path) - 2)
+            # prefix — сохранённое начало пути от start до выбранной точки включительно.
             prefix = path[: cut + 1]
-            tail = self.graph.random_walk_path(prefix[-1], self.target, rng=self.rng)
-            return self.graph.remove_cycles(prefix + tail[1:])
+            # Строится новый случайный хвост пути.
+            # Это не кратчайший хвост, а просто допустимый маршрут, найденный случайным DFS.
+            tail = self._random_valid_path(
+                # Новый хвост начинается в последней вершине сохранённого префикса.
+                start=prefix[-1],
+                # Новый хвост должен завершиться в общей целевой вершине задачи.
+                target=self.target,
+                # В forbidden передаются уже использованные вершины префикса, кроме точки стыковки.
+                # Это снижает вероятность циклов в новом маршруте.
+                forbidden=set(prefix[:-1]),
+            # Закрывается вызов функции или список аргументов.
+            )
+            # Префикс и новый хвост склеиваются в один путь.
+            # tail[1:] берётся, чтобы не продублировать вершину стыковки.
+            # После склейки путь передаётся в ремонт, который также не должен использовать Дейкстру.
+            return self._repair_path(prefix + tail[1:])
+
+        # Начинается режим вставки случайного обхода.
         if mode == "insert_detour":
+            # Выбирается позиция в пути, после которой будет пробоваться вставка обхода.
             idx = self.rng.randint(0, len(path) - 2)
+            # u — вершина, из которой будет выбран дополнительный сосед для обхода.
             u = path[idx]
+            # Получаем всех соседей вершины u.
+            # Метод neighbors возвращает словарь соседей и весов, поэтому берутся только ключи.
             neighbors = list(self.graph.neighbors(u).keys())
-            if not neighbors:
-                return path
-            mid = self.rng.choice(neighbors)
-            tail = self.graph.random_walk_path(mid, self.target, rng=self.rng)
-            return self.graph.remove_cycles(path[: idx + 1] + [mid] + tail[1:])
-        if len(path) >= 4:
+            # Соседи перемешиваются, чтобы выбор обхода был случайным.
+            self.rng.shuffle(neighbors)
+
+            # Перебираются возможные промежуточные вершины для вставки обхода.
+            for mid in neighbors:
+                # Проверяется, не создаст ли выбранная вершина mid цикл в уже пройденной части пути.
+                # Целевая вершина допускается как исключение, потому что она может завершить маршрут.
+                if mid in path[: idx + 1] and mid != self.target:
+                    # Текущий вариант пропускается, и алгоритм пробует следующего кандидата.
+                    continue
+
+                # Строится новый случайный хвост пути.
+                # Это не кратчайший хвост, а просто допустимый маршрут, найденный случайным DFS.
+                tail = self._random_valid_path(
+                    # Случайный хвост будет строиться от вставленной вершины mid.
+                    start=mid,
+                    # Новый хвост должен завершиться в общей целевой вершине задачи.
+                    target=self.target,
+                    # Запрещаем уже пройденную часть пути, чтобы хвост не возвращался назад и не создавал цикл.
+                    forbidden=set(path[: idx + 1]),
+                # Закрывается вызов функции или список аргументов.
+                )
+                # Собирается новый путь: старое начало, вставленная вершина mid и хвост от mid до target.
+                # tail[1:] не дублирует mid.
+                return self._repair_path(path[: idx + 1] + [mid] + tail[1:])
+
+            # Если выбранный режим не смог построить новый вариант, возвращается отремонтированный исходный путь.
+            return self._repair_path(path)
+
+        # Начинается режим перестройки внутреннего сегмента пути.
+        # Он доступен только для путей длиной минимум 4 вершины.
+        if mode == "reroute_segment" and len(path) >= 4:
+            # Выбирается начало сегмента, который будет перестроен.
             i = self.rng.randint(0, len(path) - 3)
+            # Выбирается конец сегмента правее i.
+            # Между i и j должен быть хотя бы один внутренний элемент для замены.
             j = self.rng.randint(i + 2, len(path) - 1)
-            bridge, _ = self.graph.shortest_path(path[i], path[j])
-            return self.graph.remove_cycles(path[:i] + bridge + path[j + 1 :])
-        return path
 
+            # prefix — часть пути до начала перестраиваемого сегмента включительно.
+            prefix = path[: i + 1]
+            # suffix — часть пути от конца перестраиваемого сегмента до target.
+            suffix = path[j:]
+
+            # Строится случайный новый промежуточный путь между path[i] и path[j].
+            # Это ключевая замена старого подхода: здесь не используется shortest_path().
+            middle = self._random_valid_path(
+                # Начало нового внутреннего сегмента — вершина path[i].
+                start=path[i],
+                # Конец нового внутреннего сегмента — вершина path[j].
+                target=path[j],
+                # Запрещаются вершины внешних частей пути, чтобы новый middle не пересекался с ними.
+                forbidden=set(prefix[:-1] + suffix[1:]),
+            # Закрывается вызов функции или список аргументов.
+            )
+
+            # Собирается новый путь из начала, внутренней части middle и конца.
+            # middle[1:-1] используется без крайних вершин, потому что они уже есть в prefix и suffix.
+            return self._repair_path(prefix + middle[1:-1] + suffix)
+
+        # Начинается режим удаления промежуточной вершины.
+        # Он может укоротить путь, но только если после удаления останется существующее ребро.
+        if mode == "delete_vertex" and len(path) >= 4:
+            # Формируется список индексов внутренних вершин.
+            # start и target не включаются, потому что удалять границы маршрута нельзя.
+            indices = list(range(1, len(path) - 1))
+            # Порядок проверки вершин перемешивается, чтобы удаление было случайной мутацией.
+            self.rng.shuffle(indices)
+
+            # Перебираются кандидаты на удаление.
+            for idx in indices:
+                # prev_vertex — вершина перед удаляемой.
+                prev_vertex = path[idx - 1]
+                # next_vertex — вершина после удаляемой.
+                next_vertex = path[idx + 1]
+
+                # Проверяется, есть ли прямое ребро между соседями удаляемой вершины.
+                # Если ребро есть, вершину можно удалить без разрыва маршрута.
+                if self.graph.has_edge(prev_vertex, next_vertex):
+                    # Возвращается путь без вершины path[idx].
+                    # После удаления путь дополнительно проходит ремонт.
+                    return self._repair_path(path[:idx] + path[idx + 1:])
+
+            # Если выбранный режим не смог построить новый вариант, возвращается отремонтированный исходный путь.
+            return self._repair_path(path)
+
+        # Если выбранный режим не смог построить новый вариант, возвращается отремонтированный исходный путь.
+        return self._repair_path(path)
+
+    # Метод ремонта пути делает путь корректным для графа и пары start-target.
+    # Метод восстанавливает путь до допустимого маршрута start -> target.
+    # Новая версия ремонта не использует shortest_path(), то есть не вставляет оптимальные мосты Дейкстры.
+    # Ремонт сохраняет корректный префикс и затем случайно достраивает хвост.
     def _repair_path(self, path: List[int]) -> List[int]:
+        # Проверяется, не является ли входной путь пустым.
         if not path:
-            return self.graph.random_walk_path(self.start, self.target, rng=self.rng)
-        if path[0] != self.start:
-            path = [self.start] + path
-        if path[-1] != self.target:
-            path = path + [self.target]
-        repaired = [path[0]]
-        for next_vertex in path[1:]:
-            current = repaired[-1]
-            if current == next_vertex:
-                continue
-            if self.graph.has_edge(current, next_vertex):
-                repaired.append(next_vertex)
-            else:
-                bridge, _ = self.graph.shortest_path(current, next_vertex)
-                repaired.extend(bridge[1:])
-        if repaired[-1] != self.target:
-            tail = self.graph.random_walk_path(repaired[-1], self.target, rng=self.rng)
-            repaired.extend(tail[1:])
-        repaired = self.graph.remove_cycles(repaired)
-        if repaired[0] != self.start or repaired[-1] != self.target:
-            repaired = self.graph.random_walk_path(self.start, self.target, rng=self.rng)
-        return repaired
+            # Если исходный путь нельзя использовать, создаётся новый случайный допустимый путь.
+            return self._random_valid_path()
 
-    def _update_memory(self, memory: List[Antibody], population: List[Antibody]) -> List[Antibody]:
-        candidates = memory + population
-        candidates.sort(key=lambda antibody: antibody.objective)
-        unique: List[Antibody] = []
-        seen = set()
-        for antibody in candidates:
-            if antibody.key not in seen:
-                unique.append(antibody.clone())
-                seen.add(antibody.key)
-            if len(unique) >= self.memory_size:
+        # Начинается фильтрация исходного пути.
+        # Из него будут удалены вершины с некорректными номерами.
+        cleaned_path = [
+            # Текущая вершина сохраняется в cleaned_path, если она проходит условие ниже.
+            vertex
+            # Перебираются все вершины исходного пути.
+            for vertex in path
+            # Оставляются только вершины, реально существующие в графе.
+            if 0 <= vertex < self.graph.vertices
+        # Закрывается список после фильтрации.
+        ]
+
+        # Если после удаления некорректных вершин путь стал пустым, его нельзя ремонтировать.
+        if not cleaned_path:
+            # Если исходный путь нельзя использовать, создаётся новый случайный допустимый путь.
+            return self._random_valid_path()
+
+        # Проверяется, начинается ли путь с нужной стартовой вершины.
+        if cleaned_path[0] != self.start:
+            # Если путь начинается не со start, стартовая вершина добавляется в начало.
+            cleaned_path = [self.start] + cleaned_path
+
+        # Создаётся новый путь repaired.
+        # Он начинается с первой вершины cleaned_path.
+        repaired = [cleaned_path[0]]
+
+        # Последовательно перебираются остальные вершины очищенного пути.
+        for next_vertex in cleaned_path[1:]:
+            # current — последняя вершина уже восстановленного корректного префикса.
+            current = repaired[-1]
+
+            # Если восстановленный путь уже дошёл до target, дальше обрабатывать старый путь не нужно.
+            if current == self.target:
+                # Цикл прерывается.
                 break
+
+            # Проверяется повтор одной и той же вершины подряд.
+            if current == next_vertex:
+                # Следующая строка относится к логике метода _repair_path и оставлена без изменения.
+                continue
+
+            # Проверяется, встречалась ли следующая вершина раньше.
+            # Повторная вершина создала бы цикл.
+            if next_vertex in repaired:
+                # Следующая строка относится к логике метода _repair_path и оставлена без изменения.
+                continue
+
+            # Проверяется, существует ли прямое ребро между текущей и следующей вершиной.
+            if self.graph.has_edge(current, next_vertex):
+                # Если ребро существует, next_vertex добавляется в восстановленный путь.
+                repaired.append(next_vertex)
+            # Если прямого ребра нет, старый путь в этом месте разорван.
+            else:
+                # Цикл прерывается.
+                break
+
+        # После обработки префикса проверяется, дошёл ли путь до target.
+        if repaired[-1] != self.target:
+            # Если target ещё не достигнут, строится случайный хвост до target.
+            # Это не кратчайший хвост, а случайный допустимый путь.
+            tail = self._random_valid_path(
+                # Хвост начинается в последней вершине восстановленного префикса.
+                start=repaired[-1],
+                # Хвост должен закончиться в целевой вершине задачи.
+                target=self.target,
+                # Уже использованные вершины запрещаются, чтобы снизить вероятность циклов.
+                forbidden=set(repaired[:-1]),
+            # Следующая строка относится к логике метода _repair_path и оставлена без изменения.
+            )
+            # Хвост добавляется к repaired без первой вершины, чтобы не дублировать точку стыковки.
+            repaired.extend(tail[1:])
+
+        # На всякий случай удаляются циклы, если они появились после склейки.
+        repaired = self.graph.remove_cycles(repaired)
+
+        # Финальная проверка: получился ли корректный путь от start до target.
+        if self.graph.is_valid_path(repaired, self.start, self.target):
+            # Если путь корректен, возвращается восстановленный маршрут.
+            return repaired
+
+        # Если исходный путь нельзя использовать, создаётся новый случайный допустимый путь.
+        return self._random_valid_path()
+
+    # Метод обновляет иммунную память: хранит лучшие уникальные решения.
+    def _update_memory(self, memory: List[Antibody], population: List[Antibody]) -> List[Antibody]:
+        # candidates — общий список кандидатов в память: старая память плюс текущая популяция.
+        candidates = memory + population
+        # Сортируем кандидатов по objective: лучшие, то есть самые короткие пути, идут первыми.
+        candidates.sort(key=lambda antibody: antibody.objective)
+        # unique — будущий список уникальных антител памяти.
+        unique: List[Antibody] = []
+        # seen — множество ключей уже добавленных путей, чтобы не хранить полные дубликаты.
+        seen = set()
+        # Перебираем кандидатов от лучшего к худшему.
+        for antibody in candidates:
+            # Если путь этого антитела ещё не встречался.
+            if antibody.key not in seen:
+                # Добавляем в память клон антитела, чтобы память не зависела от внешних изменений объекта.
+                unique.append(antibody.clone())
+                # Запоминаем ключ пути как уже встреченный.
+                seen.add(antibody.key)
+            # Если память уже достигла разрешённого размера.
+            if len(unique) >= self.memory_size:
+                # Останавливаем набор памяти.
+                break
+        # Возвращаем обновлённую иммунную память.
         return unique
 
+    # Метод супрессии удаляет слишком похожие решения.
+    # Это имитирует механизм поддержания разнообразия в искусственной иммунной сети.
     def _suppress(self, population: List[Antibody]) -> List[Antibody]:
+        # result — новая популяция после супрессии.
         result: List[Antibody] = []
+        # Перебираем антитела, предполагается, что population уже отсортирована от лучших к худшим.
         for antibody in population:
+            # Если result пока пустой, первое антитело добавляем без проверок.
             if not result:
+                # Добавляем лучшее антитело.
                 result.append(antibody)
+                # Переходим к следующему антителу.
                 continue
+            # too_similar показывает, похоже ли текущее антитело хотя бы на одно уже выбранное.
+            # Сходство считается по набору рёбер пути.
             too_similar = any(self._path_similarity(antibody.path, existing.path) >= self.suppression_threshold for existing in result)
+            # Если антитело не слишком похоже на уже выбранные.
             if not too_similar:
+                # Добавляем его в результат, сохраняя разнообразие популяции.
                 result.append(antibody)
+            # Если уже набрали population_size антител, дальше идти не нужно.
             if len(result) >= self.population_size:
+                # Останавливаем супрессию.
                 break
+        # Возвращаем популяцию после удаления похожих решений.
         return result
 
+    # Метод вводит случайные новые антитела в популяцию.
+    # Это нужно, чтобы алгоритм мог выйти из локального минимума и продолжал исследовать граф.
+    # Метод вводит новые случайные антитела в популяцию.
+    # Он нужен для поддержания разнообразия и выхода из локальных минимумов.
+    # Внимание: в текущем коде внутри этого метода всё ещё есть graph.random_walk_path().
     def _inject_random_antibodies(self, population: List[Antibody]) -> List[Antibody]:
+        # target_random — сколько случайных антител нужно заменить/добавить.
+        # max(1, ...) гарантирует хотя бы одну случайную инъекцию.
         target_random = max(1, int(self.population_size * self.random_injection_rate))
+        # Создаём копию текущей популяции, чтобы не менять исходный список напрямую.
         result = population[:]
+        # Если после супрессии популяция стала меньше нужного размера, дозаполняем её случайными антителами.
         while len(result) < self.population_size:
+            # Генерируем случайный путь и сразу превращаем его в антитело.
+            # Здесь создаётся новое антитело через graph.random_walk_path().
+            # Если graph.random_walk_path() внутри использует shortest_path(), то это место всё ещё не полностью чистое для ИИС.
+            # Код не меняется по твоему требованию, но для строгой настоящей ИИС эту строку нужно заменить на self._random_valid_path().
             result.append(self._make_antibody(self.graph.random_walk_path(self.start, self.target, rng=self.rng)))
+        # Сортируем популяцию: лучшие решения в начале, худшие в конце.
         result.sort(key=lambda antibody: antibody.objective)
+        # Заменяем часть худших решений случайными новыми антителами.
         for i in range(target_random):
+            # replace_idx указывает на индекс с конца списка: сначала самый худший, затем следующий худший.
             replace_idx = len(result) - 1 - i
+            # Защита от замены самого лучшего элемента с индексом 0.
             if replace_idx > 0:
+                # Заменяем худшее антитело новым случайным решением.
+                # Здесь худшее антитело заменяется новым случайным путём через graph.random_walk_path().
+                # Это также потенциально возвращает скрытое использование Дейкстры, если random_walk_path достраивает путь через shortest_path().
+                # Код оставлен как есть, но это место важно помнить при защите и дальнейшей правке.
                 result[replace_idx] = self._make_antibody(self.graph.random_walk_path(self.start, self.target, rng=self.rng))
+        # Возвращаем популяцию после случайной инъекции.
         return result
 
+    # staticmethod означает, что метод не использует self и не зависит от состояния конкретного объекта.
+    # Он просто вычисляет похожесть двух путей.
     @staticmethod
     def _path_similarity(left: List[int], right: List[int]) -> float:
+        # Вложенная функция превращает путь в множество его рёбер.
+        # Рёбра сортируются внутри tuple, чтобы ребро (u, v) и (v, u) считались одинаковыми для неориентированного сравнения.
         def edge_set(path: List[int]) -> set[Tuple[int, int]]:
+            # zip(path, path[1:]) создаёт пары соседних вершин пути.
+            # set comprehension формирует множество уникальных рёбер.
             return {tuple(sorted((u, v))) for u, v in zip(path, path[1:])}
+        # a — множество рёбер первого пути.
         a = edge_set(left)
+        # b — множество рёбер второго пути.
         b = edge_set(right)
+        # Если оба пути не содержат рёбер, они одинаково пустые с точки зрения структуры.
         if not a and not b:
+            # Возвращаем максимальную похожесть 1.0.
             return 1.0
+        # Если только один путь не содержит рёбер, пути полностью различаются.
         if not a or not b:
+            # Возвращаем минимальную похожесть 0.0.
             return 0.0
+        # Сходство считается как коэффициент Жаккара: размер пересечения рёбер / размер объединения рёбер.
+        # Чем больше общих рёбер у путей, тем ближе значение к 1.0.
         return len(a & b) / len(a | b)
+    
+
+    # Новый метод строит случайный допустимый путь без Дейкстры.
+    # Он является заменой старой генерации через graph.random_walk_path().
+    def _random_valid_path(
+        # self даёт доступ к графу, параметрам задачи и генератору случайных чисел.
+        self,
+        # start — необязательная начальная вершина для локального построения пути.
+        # Если она не передана, будет использована self.start.
+        start: int | None = None,
+        # target — необязательная конечная вершина для локального построения пути.
+        # Если она не передана, будет использована self.target.
+        target: int | None = None,
+        # forbidden — множество вершин, которые не рекомендуется посещать.
+        # Оно помогает строить хвосты и сегменты без повторения уже пройденного маршрута.
+        forbidden: set[int] | None = None,
+    # Метод возвращает список номеров вершин, то есть путь.
+    ) -> List[int]:
+        # Если start не задан явно, берётся стартовая вершина всей задачи.
+        start = self.start if start is None else start
+        # Если target не задан явно, берётся целевая вершина всей задачи.
+        target = self.target if target is None else target
+
+        # Создаётся копия множества запрещённых вершин.
+        # Если forbidden равен None, используется пустое множество.
+        blocked = set(forbidden or set())
+        # Стартовую вершину удаляем из запретов, иначе поиск не сможет начаться.
+        blocked.discard(start)
+        # Целевую вершину удаляем из запретов, иначе поиск не сможет завершиться.
+        blocked.discard(target)
+
+        # visited начинается с запрещённых вершин.
+        # DFS будет считать их уже посещёнными и не будет заходить в них.
+        visited = set(blocked)
+        # Стартовая вершина помечается посещённой, чтобы не возвращаться в неё циклом.
+        visited.add(start)
+
+                # Внутренняя рекурсивная функция dfs ищет путь от current до target.
+        # current — вершина, в которой поиск находится сейчас.
+        # path — уже построенный маршрут от исходного start до current.
+        # Функция возвращает List[int], если путь найден, или None, если из этой ветки дойти до target не удалось.
+        def dfs(current: int, path: List[int]) -> List[int] | None:
+            # Базовый случай рекурсии: если текущая вершина уже target, маршрут найден.
+            if current == target:
+                # Возвращаем накопленный путь как успешный результат поиска.
+                return path
+
+            # Получаем соседей текущей вершины current.
+            # self.graph.neighbors(current) возвращает словарь вида {сосед: вес}, поэтому берём только .keys().
+            # Веса здесь не используются специально: это не Дейкстра и не жадный поиск по минимальному весу.
+            neighbors = list(self.graph.neighbors(current).keys())
+            # Перемешиваем соседей локальным генератором случайных чисел.
+            # Благодаря этому DFS становится стохастическим: разные seed могут давать разные допустимые пути.
+            self.rng.shuffle(neighbors)
+
+            # Перебираем всех соседей текущей вершины в случайном порядке.
+            # Каждый nxt — кандидат на следующий шаг маршрута.
+            for nxt in neighbors:
+                # Если сосед уже посещён, идти в него нельзя, иначе возникнет цикл.
+                # Исключение сделано для target: даже если он отмечен, в целевую вершину нужно разрешить вход для завершения пути.
+                if nxt in visited and nxt != target:
+                    # Пропускаем неподходящего соседа и переходим к следующему кандидату.
+                    continue
+
+                # Флаг added показывает, добавляли ли мы вершину nxt в visited на текущей итерации.
+                # Он нужен для корректного отката состояния, если выбранная ветка не приведёт к target.
+                added = False
+                # Если nxt не является конечной вершиной, её надо временно пометить как посещённую.
+                # Target не обязательно добавлять: при попадании в target рекурсия сразу завершится.
+                if nxt != target:
+                    # Помечаем nxt как посещённую перед рекурсивным переходом.
+                    # Это не даст следующему уровню DFS вернуться в эту же вершину и зациклиться.
+                    visited.add(nxt)
+                    # Запоминаем, что именно эта итерация добавила nxt в visited.
+                    # Значит, при неудаче эту вершину надо будет удалить обратно.
+                    added = True
+
+                # Рекурсивно продолжаем поиск уже из вершины nxt.
+                # path + [nxt] создаёт новый список маршрута с добавленной вершиной nxt.
+                # Исходный path не изменяется, что безопаснее для рекурсивного перебора.
+                result = dfs(nxt, path + [nxt])
+                # Проверяем, удалось ли найти путь.
+                if result is not None:
+                    return result
+
+                # Если текущая итерация добавляла nxt в visited, при неудаче нужно откатить это изменение.
+                if added:
+                    # Удаляем nxt из visited после неудачной ветки.
+                    # Это позволяет другим веткам DFS использовать эту вершину в другом маршруте.
+                    visited.remove(nxt)
+
+            # Если ни один сосед не привёл к target, из текущей вершины путь в рамках этой ветки не найден.
+            # Возвращаем None на уровень выше.
+            return None
+
+        # Запускаем рекурсивный DFS из стартовой вершины.
+        # Начальный путь содержит только start.
+        result = dfs(start, [start])
+
+        # Проверяем, удалось ли найти путь.
+        if result is not None:
+            # Возвращаем найденный путь после дополнительного удаления циклов.
+            # DFS с visited обычно не создаёт циклов, но эта очистка оставлена как страховка.
+            return self.graph.remove_cycles(result)
+
+        # Если путь не найден и при этом были forbidden-ограничения, возможно, ограничения оказались слишком жёсткими.
+        if forbidden:
+            # Повторяем поиск без forbidden.
+            # Это запасной вариант, чтобы алгоритм не падал, если запреты отрезали все возможные маршруты.
+            return self._random_valid_path(start, target, forbidden=None)
+
+        # Если путь не найден даже без forbidden, выбрасываем ошибку.
+        # Для связного графа такая ситуация обычно означает проблему в графе, start/target или логике генерации.
+        raise ValueError("Не удалось построить случайный допустимый путь.")

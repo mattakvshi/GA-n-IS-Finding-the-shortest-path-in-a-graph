@@ -4,6 +4,11 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>ИС · Кратчайший путь</title>
+		<script
+			type="text/javascript"
+			src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=lrbxMEy86yTW58zIrNPvchIuQPEU3nOVcLpims1BzOit2J2HS1qfZT_FAVdOJx-__RAUzCAdhL5TCd9gTr2JdgI2JuQDR6vSG8rL9A5mBHQ9LS8ooi0h9d3wggaAS0p5Rsese7PFERatJlIHOlp9K0_c_xbOzoyw4qppibPm_gWbvB3L5Aok2657mONgfs2_b9Bob-Z0hp4NEoDK1FbWFyxG44b0_FYBN0fOd99YoEf_3nJ8F9ojJOGf8zEYH7G5jXzRNTfyZUY-RYTSJ7bFe_30zPAC2KoHNe0K0dQdGNHJveIOtZzblZW7eE3Dyd-mQmhVj-VzXsw1WDySzj33BQ"
+			charset="UTF-8"
+		></script>
 		<style>
 			:root {
 				--bg: #07111f;
@@ -220,10 +225,6 @@
 				opacity: 0.55;
 				cursor: not-allowed;
 			}
-			.graphPanel {
-				padding: 18px;
-				min-height: 680px;
-			}
 			.graphTop {
 				display: flex;
 				justify-content: space-between;
@@ -244,6 +245,64 @@
 				display: inline-block;
 				margin-right: 5px;
 			}
+			.graphTools {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				flex-wrap: wrap;
+				justify-content: flex-end;
+			}
+			.iconBtn {
+				width: 34px;
+				height: 34px;
+				border: 1px solid rgba(159, 179, 200, 0.22);
+				border-radius: 12px;
+				background: rgba(255, 255, 255, 0.06);
+				color: var(--text);
+				cursor: pointer;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				padding: 0;
+				transition:
+					border-color 0.18s ease,
+					color 0.18s ease,
+					background 0.18s ease,
+					transform 0.18s ease;
+			}
+			.iconBtn:hover {
+				border-color: var(--cyan);
+				color: var(--cyan);
+				background: rgba(0, 213, 255, 0.12);
+				transform: translateY(-1px);
+			}
+			.iconBtn svg {
+				width: 18px;
+				height: 18px;
+				display: block;
+				stroke: currentColor;
+			}
+			.graphPanel {
+				padding: 18px;
+				min-height: 680px;
+			}
+			.graphPanel:fullscreen {
+				width: 100vw;
+				height: 100vh;
+				padding: 22px;
+				border-radius: 0;
+				background: #07111f;
+				display: flex;
+				flex-direction: column;
+			}
+			.graphPanel:fullscreen .graphTop {
+				flex: 0 0 auto;
+			}
+			.graphPanel:fullscreen #graphSvg {
+				flex: 1 1 auto;
+				height: auto;
+				min-height: 0;
+			}
 			#graphSvg {
 				width: 100%;
 				height: 590px;
@@ -251,6 +310,12 @@
 				border: 1px solid rgba(42, 58, 88, 0.85);
 				border-radius: 24px;
 				overflow: hidden;
+				cursor: grab;
+				touch-action: none;
+				user-select: none;
+			}
+			#graphSvg.dragging {
+				cursor: grabbing;
 			}
 			.side {
 				display: flex;
@@ -486,23 +551,68 @@
 					</p>
 				</div>
 
-				<div class="panel graphPanel">
+				<div class="panel graphPanel" id="graphPanel">
 					<div class="graphTop">
 						<h3 class="sectionTitle" style="margin: 0">
 							Граф и найденный путь
 						</h3>
-						<div class="legend">
-							<span
-								><i class="dot" style="background: var(--mint)"></i>старт</span
+						<div class="graphTools">
+							<button
+								class="iconBtn"
+								type="button"
+								onclick="toggleGraphFullscreen()"
+								title="На весь экран"
+								aria-label="На весь экран"
 							>
-							<span
-								><i class="dot" style="background: var(--violet)"></i
-								>финиш</span
+								<svg
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke-width="2.2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M8 3H3v5" />
+									<path d="M16 3h5v5" />
+									<path d="M21 16v5h-5" />
+									<path d="M3 16v5h5" />
+									<path d="M3 3l6 6" />
+									<path d="M21 3l-6 6" />
+									<path d="M21 21l-6-6" />
+									<path d="M3 21l6-6" />
+								</svg>
+							</button>
+							<button
+								class="iconBtn"
+								type="button"
+								onclick="resetGraphView()"
+								title="Сбросить масштаб"
+								aria-label="Сбросить масштаб"
 							>
-							<span
-								><i class="dot" style="background: var(--cyan)"></i>путь
-								ИС</span
-							>
+								<svg
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke-width="2.2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M21 12a9 9 0 1 1-2.64-6.36" />
+									<path d="M21 3v6h-6" />
+								</svg>
+							</button>
+							<div class="legend">
+								<span
+									><i class="dot" style="background: var(--mint)"></i
+									>старт</span
+								>
+								<span
+									><i class="dot" style="background: var(--violet)"></i
+									>финиш</span
+								>
+								<span
+									><i class="dot" style="background: var(--cyan)"></i>путь
+									ИС</span
+								>
+							</div>
 						</div>
 					</div>
 					<svg id="graphSvg" viewBox="0 0 1000 620"></svg>
@@ -603,6 +713,139 @@
 			const svg = document.getElementById('graphSvg');
 			const logBox = document.getElementById('log');
 
+			let graphViewBox = {
+				x: 0,
+				y: 0,
+				w: 1000,
+				h: 620,
+			};
+
+			let isGraphDragging = false;
+			let dragStart = null;
+
+			function applyGraphViewBox() {
+				svg.setAttribute(
+					'viewBox',
+					`${graphViewBox.x} ${graphViewBox.y} ${graphViewBox.w} ${graphViewBox.h}`,
+				);
+			}
+
+			function resetGraphView() {
+				graphViewBox = {
+					x: 0,
+					y: 0,
+					w: 1000,
+					h: 620,
+				};
+				applyGraphViewBox();
+			}
+
+			async function toggleGraphFullscreen() {
+				const graphPanel = document.getElementById('graphPanel');
+
+				if (!graphPanel) {
+					log('ОШИБКА: панель графа не найдена.');
+					return;
+				}
+
+				try {
+					if (!document.fullscreenElement) {
+						await graphPanel.requestFullscreen();
+					} else {
+						await document.exitFullscreen();
+					}
+				} catch (error) {
+					log('ОШИБКА fullscreen: ' + error.message);
+				}
+			}
+
+			document.addEventListener('fullscreenchange', () => {
+				setTimeout(() => {
+					applyGraphViewBox();
+					drawGraph();
+				}, 60);
+			});
+
+			function getSvgPoint(event) {
+				const rect = svg.getBoundingClientRect();
+
+				return {
+					x:
+						graphViewBox.x +
+						((event.clientX - rect.left) / rect.width) * graphViewBox.w,
+					y:
+						graphViewBox.y +
+						((event.clientY - rect.top) / rect.height) * graphViewBox.h,
+				};
+			}
+
+			svg.addEventListener('wheel', event => {
+				event.preventDefault();
+
+				const mouse = getSvgPoint(event);
+				const zoomFactor = event.deltaY < 0 ? 0.88 : 1.14;
+
+				const newW = graphViewBox.w * zoomFactor;
+				const newH = graphViewBox.h * zoomFactor;
+
+				const minW = 120;
+				const maxW = 1800;
+
+				if (newW < minW || newW > maxW) {
+					return;
+				}
+
+				graphViewBox.x =
+					mouse.x - ((mouse.x - graphViewBox.x) / graphViewBox.w) * newW;
+				graphViewBox.y =
+					mouse.y - ((mouse.y - graphViewBox.y) / graphViewBox.h) * newH;
+				graphViewBox.w = newW;
+				graphViewBox.h = newH;
+
+				applyGraphViewBox();
+			});
+
+			svg.addEventListener('mousedown', event => {
+				if (event.button !== 0) return;
+
+				isGraphDragging = true;
+				svg.classList.add('dragging');
+
+				dragStart = {
+					clientX: event.clientX,
+					clientY: event.clientY,
+					viewX: graphViewBox.x,
+					viewY: graphViewBox.y,
+				};
+			});
+
+			window.addEventListener('mousemove', event => {
+				if (!isGraphDragging || !dragStart) {
+					return;
+				}
+
+				const rect = svg.getBoundingClientRect();
+				const dx =
+					((event.clientX - dragStart.clientX) / rect.width) * graphViewBox.w;
+				const dy =
+					((event.clientY - dragStart.clientY) / rect.height) * graphViewBox.h;
+
+				graphViewBox.x = dragStart.viewX - dx;
+				graphViewBox.y = dragStart.viewY - dy;
+
+				applyGraphViewBox();
+			});
+
+			window.addEventListener('mouseup', () => {
+				isGraphDragging = false;
+				dragStart = null;
+				svg.classList.remove('dragging');
+			});
+
+			svg.addEventListener('dblclick', () => {
+				resetGraphView();
+			});
+
 			function log(msg) {
 				const t = new Date().toLocaleTimeString();
 				logBox.innerHTML += `[${t}] ${msg}<br>`;
@@ -650,6 +893,8 @@
 			function drawGraph() {
 				if (!graph) return;
 				svg.innerHTML = '';
+				applyGraphViewBox();
+
 				const W = 1000,
 					H = 620;
 				const pos = {};
@@ -697,22 +942,37 @@
 					if (isPath) line.setAttribute('filter', 'url(#glow)');
 					svg.appendChild(line);
 
-					if (isPath) {
-						const tx = (p1.x + p2.x) / 2,
-							ty = (p1.y + p2.y) / 2;
-						const label = document.createElementNS(
-							'http://www.w3.org/2000/svg',
-							'text',
-						);
-						label.setAttribute('x', tx);
-						label.setAttribute('y', ty - 8);
-						label.setAttribute('fill', '#f7fafc');
-						label.setAttribute('font-size', '15');
-						label.setAttribute('font-weight', '800');
-						label.setAttribute('text-anchor', 'middle');
-						label.textContent = e.weight;
-						svg.appendChild(label);
-					}
+					const tx = (p1.x + p2.x) / 2;
+					const ty = (p1.y + p2.y) / 2;
+
+					const labelBg = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'rect',
+					);
+					labelBg.setAttribute('x', tx - 14);
+					labelBg.setAttribute('y', ty - 24);
+					labelBg.setAttribute('width', 28);
+					labelBg.setAttribute('height', 20);
+					labelBg.setAttribute('rx', 7);
+					labelBg.setAttribute('fill', '#07111f');
+					labelBg.setAttribute('opacity', isPath ? '0.95' : '0.78');
+					labelBg.setAttribute('stroke', isPath ? '#46f0c2' : '#42526e');
+					labelBg.setAttribute('stroke-width', isPath ? '1.4' : '0.8');
+					svg.appendChild(labelBg);
+
+					const label = document.createElementNS(
+						'http://www.w3.org/2000/svg',
+						'text',
+					);
+					label.setAttribute('x', tx);
+					label.setAttribute('y', ty - 9);
+					label.setAttribute('fill', isPath ? '#f7fafc' : '#cde6ff');
+					label.setAttribute('font-size', isPath ? '15' : '12');
+					label.setAttribute('font-weight', isPath ? '900' : '700');
+					label.setAttribute('text-anchor', 'middle');
+					label.setAttribute('pointer-events', 'none');
+					label.textContent = e.weight;
+					svg.appendChild(label);
 				}
 
 				for (let i = 0; i < graph.vertices; i++) {
@@ -869,6 +1129,7 @@
 				graph = await api('/api/demo');
 				lastPath = [];
 				lastDijkstra = [];
+				resetGraphView();
 				updateHero();
 				drawGraph();
 				log(
@@ -887,6 +1148,7 @@
 				});
 				lastPath = [];
 				lastDijkstra = [];
+				resetGraphView();
 				updateHero();
 				drawGraph();
 				log(
